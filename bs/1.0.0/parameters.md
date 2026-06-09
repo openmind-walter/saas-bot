@@ -7,12 +7,27 @@ form:
     type: grid
     css: "grid grid-cols-1 md:grid-cols-2 gap-4"
     areas:
+      - ["mode", "mode"]
       - ["initial_cash", "min_trade_value"]
       - ["buy_price_down", "sell_price_up"]
       - ["min_profit_pct", "min_profit_pct"]
       - ["submit", "submit"]
 
   fields:
+    - id: mode
+      label: "Direction"
+      component: select
+      css: "select select-bordered w-full"
+      bind: "params.mode"
+      default: both
+      options:
+        - { value: long, label: "Long only — buy dips, sell to take profit" }
+        - { value: short, label: "Short only — short rallies, buy back to take profit" }
+        - { value: both, label: "Both — ladder buys lower and shorts higher" }
+      help: "Which sides of the grid are active."
+      validation:
+        required: true
+
     - id: initial_cash
       label: "Initial cash ($)"
       component: number
@@ -98,17 +113,20 @@ This Markdown body is ignored by the form engine — it documents the schema tha
 lives above the closing `---`. The form binds to the bot's `params` JSONB blob,
 which `strategy-core` reads as [`BsParams`](../strategy-core/src/bs.rs).
 
-BS runs a **bidirectional grid of independent legs**: it opens an initial long,
-ladders more buys lower and more shorts higher as price runs, and closes each leg
-on its own once it reaches the profit target.
+BS runs a **grid of independent legs**. Depending on `mode` it ladders buys
+lower, shorts higher, or both, opening an initial leg, adding more as price runs,
+and closing each leg on its own once it reaches the profit target.
 
 | Parameter         | Label                       | Default | Meaning                                                                  |
 | ----------------- | --------------------------- | ------- | ------------------------------------------------------------------------ |
+| `mode`            | Direction                   | both    | Which sides trade: `long`, `short`, or `both`.                           |
 | `initial_cash`    | Initial cash ($)            | 1000    | Deployable budget for the grid; the budget caps how deep the grid grows. |
 | `min_trade_value` | Trade value ($)             | 200     | Dollar value committed per trade (each grid leg).                        |
-| `buy_price_down`  | Buy when price drops (%)    | 5       | How far price must drop before buying another leg.                       |
-| `sell_price_up`   | Short when price rises (%)  | 5       | How far price must rise before shorting another leg.                     |
+| `buy_price_down`  | Buy when price drops (%)    | 5       | How far price must drop before buying another leg (long side).           |
+| `sell_price_up`   | Short when price rises (%)  | 5       | How far price must rise before shorting another leg (short side).        |
 | `min_profit_pct`  | Profit target (%)           | 10      | How far a leg must move in its favour before it is closed.               |
 
-Percentages are whole numbers (e.g. `5` = 5%), matching `BsParams`. All five
-parameters are required.
+`mode` is one of `long` / `short` / `both`; in `long` only `buy_price_down`
+applies and in `short` only `sell_price_up`. Percentages are whole numbers (e.g.
+`5` = 5%), matching `BsParams`. All parameters are required (`mode` defaults to
+`both`).
